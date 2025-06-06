@@ -1,42 +1,43 @@
-import { axiosInstance } from "@/lib/axios";
 import { Todo } from "@prisma/client";
-import { AxiosError } from "axios";
 
 /**
- * Busca os cards do Kanban com opções de filtro por projeto e modo de visualização
- * @param projectId - ID do projeto para filtrar, ou "all" para todos os projetos
- * @param viewMode - Modo de visualização ("mine" para ver apenas cards do usuário atual)
- * @returns Promise com array de cards filtrados
+ * Função para buscar todos (cards) da API
+ * @param projectId - ID do projeto para filtrar (opcional)
+ * @param view - Modo de visualização ('mine' para ver apenas os próprios cards, ou undefined para todos)
+ * @returns Promise com array de todos
  */
-const todoFetchRequest = async (projectId?: string | null, viewMode?: string | null) => {
+const todoFetchRequest = async (projectId?: string | null, view?: string | null): Promise<Todo[]> => {
+  console.log(`Fetching todos with projectId: ${projectId}, view: ${view}`);
+  
+  // Construir URL com parâmetros de consulta
+  const url = new URL("/api/todo", window.location.origin);
+  
+  // Adicionar parâmetro de visualização se especificado
+  if (view === "mine") {
+    url.searchParams.append("view", "mine");
+  }
+  
+  // Adicionar parâmetro de projeto se especificado e não for "all"
+  if (projectId && projectId !== "all") {
+    url.searchParams.append("projectId", projectId);
+  }
+  
   try {
-    // Construir URL com parâmetros de query
-    let url = "/todo";
-    const params = new URLSearchParams();
+    const response = await fetch(url.toString());
     
-    // Adicionar filtro de projeto se especificado e não for "all"
-    if (projectId && projectId !== "all") {
-      params.append("projectId", projectId);
+    if (!response.ok) {
+      console.error("Error fetching todos:", response.status, response.statusText);
+      throw new Error(`Erro ao buscar cards: ${response.statusText}`);
     }
     
-    // Adicionar filtro de visualização se for "mine"
-    if (viewMode === "mine") {
-      params.append("view", "mine");
-    }
-    
-    // Adicionar parâmetros à URL se houver algum
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    const result = await axiosInstance.get(url);
-    return result.data as Promise<Todo[]>;
+    const data = await response.json();
+    console.log(`Fetched ${data.length} todos`);
+    return data;
   } catch (error) {
-    if (error instanceof AxiosError && error.response?.status === 401) {
-      return [];
-    }
+    console.error("Error in todoFetchRequest:", error);
     throw error;
   }
 };
 
 export default todoFetchRequest;
+

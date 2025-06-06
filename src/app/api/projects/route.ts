@@ -52,3 +52,62 @@ export async function POST(req: NextRequest) {
   }
 }
 
+
+
+// PUT /api/projects - Update an existing project
+export async function PUT(req: NextRequest) {
+  const logger = getLogger("info");
+  try {
+    const session = await getAuthSession();
+    if (!session?.user) return new Response("Unauthorized", { status: 401 });
+
+    const body = await req.json();
+    const { id, name, description } = body;
+
+    if (!id) {
+      return new Response("Project ID is required", { status: 400 });
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: id },
+      data: {
+        name: name || undefined,
+        description: description || null,
+      },
+    });
+
+    return new Response(JSON.stringify(updatedProject), { status: 200 });
+  } catch (error) {
+    logger.error("Error updating project:", error);
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
+// DELETE /api/projects - Delete a project
+export async function DELETE(req: NextRequest) {
+  const logger = getLogger("info");
+  try {
+    const session = await getAuthSession();
+    if (!session?.user) return new Response("Unauthorized", { status: 401 });
+
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return new Response("Project ID is required", { status: 400 });
+    }
+
+    // Optionally, handle associated todos (e.g., set projectId to null or delete them)
+    // For now, let's just delete the project. Prisma will handle cascading deletes if configured.
+    const deletedProject = await prisma.project.delete({
+      where: { id: id },
+    });
+
+    return new Response(JSON.stringify(deletedProject), { status: 200 });
+  } catch (error) {
+    logger.error("Error deleting project:", error);
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
+
