@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation"; // Added import
 import { TASK_STATE_OPTIONS } from "@/lib/const";
 import { TodoCreateRequest, TodoCreateValidator } from "@/lib/validators/todo";
 import { TaskCreatorDefaultValues } from "@/redux/actions/todoEditorAction";
@@ -26,35 +27,52 @@ const TaskCreateFormController: FC<TaskCreateFormProps> = ({
   handleOnClose,
   task,
 }) => {
-  console.log("Rendering TaskCreateFormController (Corrected)..."); 
+  console.log("Rendering TaskCreateFormController (Corrected)...");
+  const searchParams = useSearchParams(); // Called useSearchParams
   const queryClient = useQueryClient();
   const { axiosToast } = useToast();
 
   const form = useForm<TodoCreateRequest>({
     resolver: zodResolver(TodoCreateValidator),
     defaultValues: {
-      state: TASK_STATE_OPTIONS[0].value,
-      ...task,
+      title: "", // Default to empty string
+      description: "", // Default to empty string
+      state: task.state || TASK_STATE_OPTIONS[0].value, // task.state comes from HomeTaskCreator
+      deadline: task.deadline || null, // task.deadline comes from HomeTaskCreator
+      label: [], // Default to empty array
+      // projectId is NOT set here
     },
   });
 
   // Ensure useMutation uses v4+ syntax
   const createMutation = useMutation<Todo, AxiosError, TodoCreateRequest>({
-    mutationFn: todoCreateRequest,
+    mutationFn: async (data: TodoCreateRequest) => { // Modified mutationFn
+      const currentProjectId = searchParams.get("projectId");
+      const dataWithProjectId = {
+        ...data,
+        projectId: (currentProjectId && currentProjectId !== "all") ? currentProjectId : null,
+      };
+      return todoCreateRequest(dataWithProjectId);
+    },
     onSuccess: (newTodo) => {
       console.log("onSuccess createMutation:", newTodo);
-      // Update cache: Add the new todo to the list associated with its project or the general list
-      const projectId = newTodo.projectId || null; // Get project ID from the newly created todo
-      const queryKey = ["todos", { projectId }];
       
-      queryClient.setQueryData<Todo[]>(queryKey, (oldTodos = []) => [
+      const effectiveProjectId = newTodo.projectId; // Can be null
+
+      // Update cache: Add the new todo to the list associated with its project
+      const queryKey = ["todos", { projectId: effectiveProjectId }];
+
+      queryClient.setQueryData<Todo[]>(queryKey, (oldTodos = []) => [ // oldTodos defaults to []
         ...oldTodos,
         newTodo,
       ]);
       
-      // Also invalidate the general 'todos' query if it exists and might be used elsewhere
+      // Comprehensive query invalidations
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      if (effectiveProjectId) {
+        queryClient.invalidateQueries({ queryKey: ["todos", { projectId: effectiveProjectId }] });
+      }
       queryClient.invalidateQueries({ queryKey: ["todos", { projectId: null }] });
-      queryClient.invalidateQueries({ queryKey: ["todos"] }); // Invalidate base query key too
 
       handleOnSuccess(); // Close dialog on success
     },
