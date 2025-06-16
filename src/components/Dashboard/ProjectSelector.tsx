@@ -91,8 +91,7 @@ const DashboardProjectSelector: FC<DashboardProjectSelectorProps> = ({ className
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent 
-          className="w-[--radix-popover-trigger-width] p-0 bg-white dark:bg-gray-900 shadow-lg rounded-md border border-gray-200 dark:border-gray-800 z-50"
+        <PopoverContent
           align="start"
         >
           {/* Loading state */}

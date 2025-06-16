@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import { BarChart, CheckCircle, Circle, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query"; 
 import { Skeleton } from "../ui/skeleton";
 import { useSearchParams } from "next/navigation"; // Import useSearchParams
+import { useMemo } from "react";
 
 // Define Label type if not already defined globally or imported
 type LabelType = {
@@ -47,56 +47,71 @@ const DashboardComponent = () => {
 
   // Update useQuery syntax for v4+
   // Include projectId and view in the queryKey to refetch when they change
-  const { data: todos, isLoading, error } = useQuery<ExtendedTodo[], Error>({
+  const { data: todos = [], isLoading, error } = useQuery<ExtendedTodo[], Error>({
     queryKey: ["todos", { projectId, view }], // Query key includes projectId and view
     queryFn: () => todoFetchRequest(projectId, view), // Pass projectId and view to fetch function
     onError: (err) => {
       console.error("Error fetching todos for dashboard:", err);
-      // Optionally show a toast or error message
-    }
+    },
+    // Add stale time and caching strategy
+    staleTime: 1000 * 60, // 1 minute
+    cacheTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  if (error) {
+  // Mova o useMemo para antes dos returns condicionais
+  const sortedTodos = useMemo(
+    () =>
+      ([...(Array.isArray(todos) ? todos : [])] as ExtendedTodo[]).sort(
+        (a, b) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix()
+      ),
+    [todos]
+  );
+
+  // Early return for loading and error states
+  if (isLoading) return <DashboardSkeleton />;
+  if (error || !Array.isArray(todos)) {
     console.error("DashboardComponent render error:", error);
-    return <div className="p-6 text-red-500">Erro ao carregar dados do dashboard: {error.message}</div>;
+    return (
+      <div className="p-6 text-red-500">
+        Erro ao carregar dados do dashboard: {error?.message || 'Dados inválidos'}
+      </div>
+    );
   }
 
-  const lastUpdatedDate =
-    !todos || todos.length === 0
-      ? dayjs()
-      : todos?.toSorted(
-          (a, b) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix(),
-        )[0]?.updatedAt;
+  const lastUpdatedDate = todos.length > 0 ? sortedTodos[0]?.updatedAt : dayjs().toDate();
+  const totalTasks = todos.length;
+  const numOfNewTask = todos.filter((todo: ExtendedTodo) =>
+    dayjs(todo.createdAt).isAfter(dayjs().subtract(1, "week"))
+  ).length;
 
-  const totalTasks = todos?.length ?? 0;
-  const numOfNewTask = todos?.filter((todo) =>
-    dayjs(todo.createdAt).isAfter(dayjs().subtract(1, "week")),
-  ).length ?? 0;
-
-  const completedTasks = todos?.filter((todo) => todo.state === "DONE").length ?? 0;
-  const lastCompletedTask = todos
-    ?.toSorted((a, b) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix())
-    .find((todo) => todo.state === "DONE");
+  const completedTasks = (Array.isArray(todos) ? todos : []).filter((todo: ExtendedTodo) => todo.state === "DONE").length;
+  const lastCompletedTask = Array.isArray(todos)
+    ? (todos as ExtendedTodo[]).slice().sort((a: ExtendedTodo, b: ExtendedTodo) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix())
+      .find((todo: ExtendedTodo) => todo.state === "DONE")
+    : undefined;
 
   const inProgressTasks = todos?.filter(
-    (todo) => todo.state === "IN_PROGRESS" || todo.state === "REVIEW",
+    (todo: ExtendedTodo) => todo.state === "IN_PROGRESS" || todo.state === "REVIEW",
   ).length ?? 0;
   const lastInProgressTask = todos
-    ?.toSorted((a, b) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix())
-    .find((todo) => todo.state === "IN_PROGRESS" || todo.state === "REVIEW");
+    ?.slice()
+    .sort((a: ExtendedTodo, b: ExtendedTodo) => dayjs(b.updatedAt).unix() - dayjs(a.updatedAt).unix())
+    .find((todo: ExtendedTodo): todo is ExtendedTodo => 
+      todo.state === "IN_PROGRESS" || todo.state === "REVIEW"
+    ) as ExtendedTodo | undefined;
 
-  const upcomingTasks = todos
-    ?.filter((todo) => todo.deadline && dayjs(todo.deadline).isAfter(dayjs())) // Check if deadline exists
-    .toSorted((a, b) => dayjs(a.deadline).unix() - dayjs(b.deadline).unix());
+  const upcomingTasks = Array.isArray(todos) ? (todos as ExtendedTodo[])
+    .filter((todo) => todo.deadline && dayjs(todo.deadline).isAfter(dayjs())) // Check if deadline exists
+    .slice().sort((a, b) => dayjs(a.deadline).unix() - dayjs(b.deadline).unix()) : [];
   const nextDueTask = upcomingTasks?.[0];
 
   // Adjust project progress calculation based on how labels/projects are structured
   // This assumes labels are directly on the Todo object as an array of strings
   const projectProgress =
-    todos?.reduce(
-      (acc, todo) => {
+    (todos as ExtendedTodo[])?.reduce(
+      (acc: Record<string, { total: number; completed: number }>, todo: ExtendedTodo) => {
         // Assuming todo.label is an array of strings representing label names
-        const labels = todo.label || []; 
+        const labels = (todo as any).label || []; 
         for (const labelName of labels) {
           if (acc[labelName]) {
             acc[labelName].total += 1;
@@ -265,8 +280,7 @@ const DashboardComponent = () => {
                             projectProgress[labelName].total) *
                           100
                         }
-                        className="h-2"
-                        indicatorClassName={getLabelColor(labelName).bg} // Use label color for progress indicator
+                        className={cn("h-2", /* Optionally add more classes here */)}
                       />
                     </div>
                   ))
@@ -293,7 +307,7 @@ const DashboardComponent = () => {
             <CardContent>
               <div className="space-y-4">
                 {upcomingTasks && upcomingTasks.length > 0 ? (
-                  upcomingTasks.map((task) => (
+                  upcomingTasks.map((task: ExtendedTodo) => (
                     <div key={task.id} className="flex items-center mb-4">
                       <div
                         className={cn(
@@ -336,6 +350,26 @@ const DashboardComponent = () => {
       return <div className="p-6 text-red-500">Ocorreu um erro ao renderizar o dashboard.</div>;
   }
 };
+
+/**
+ * Skeleton loader for the dashboard.
+ */
+const DashboardSkeleton = () => (
+  <div className="p-6 space-y-6">
+    <div className="text-sm text-muted-foreground mb-8">
+      <Skeleton className="h-4 w-64" />
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-32 rounded-lg" />
+      ))}
+    </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <Skeleton className="h-96 lg:col-span-4 rounded-lg" />
+      <Skeleton className="h-96 lg:col-span-3 rounded-lg" />
+    </div>
+  </div>
+);
 
 export default DashboardComponent;
 
