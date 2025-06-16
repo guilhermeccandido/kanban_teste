@@ -7,16 +7,31 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
-  if (!token && pathname === '/') {
+  // Se não houver token e o usuário não estiver tentando acessar a página de login,
+  // redireciona para a página de login.
+  if (!token && pathname !== '/login') {
     const loginUrl = new URL('/login', req.url);
+    // Preservar parâmetros de busca, como callbackUrl
+    loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
+  // Se o usuário estiver logado e tentar acessar a página de login, redireciona para a home ('/')
+  if (token && pathname === '/login') {
+    const homeUrl = new URL('/', req.url);
+    return NextResponse.redirect(homeUrl);
+  }
 
+  // Permite o acesso se o usuário estiver logado ou se a rota for pública (neste caso, só /login)
   return NextResponse.next();
 }
 
-
+// Configuração do matcher para aplicar o middleware a todas as rotas,
+// exceto as internas do Next.js (_next), arquivos estáticos (favicon.ico) e a própria API.
 export const config = {
-  matcher: ['/'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
+    '/', // Incluir a raiz explicitamente se não coberta pelo padrão acima
+  ],
 };
+

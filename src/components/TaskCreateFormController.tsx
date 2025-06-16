@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "react-query";
+// Ensure this import uses @tanstack/react-query
+import { useMutation, useQueryClient } from "@tanstack/react-query"; 
 import "react-quill/dist/quill.snow.css";
 import TaskModificationForm from "./TaskModificationForm";
 import { useToast } from "./ui/use-toast";
@@ -25,6 +26,7 @@ const TaskCreateFormController: FC<TaskCreateFormProps> = ({
   handleOnClose,
   task,
 }) => {
+  console.log("Rendering TaskCreateFormController (Corrected)..."); 
   const queryClient = useQueryClient();
   const { axiosToast } = useToast();
 
@@ -36,27 +38,47 @@ const TaskCreateFormController: FC<TaskCreateFormProps> = ({
     },
   });
 
-  const editMutation = useMutation({
+  // Ensure useMutation uses v4+ syntax
+  const createMutation = useMutation<Todo, AxiosError, TodoCreateRequest>({
     mutationFn: todoCreateRequest,
-    onError: (error: AxiosError) => {
-      axiosToast(error);
-    },
     onSuccess: (newTodo) => {
-      const prevTodos = queryClient.getQueryData<Todo[]>(["todos"]) ?? [];
-      queryClient.setQueryData(["todos"], [...prevTodos, newTodo]);
-      handleOnSuccess();
+      console.log("onSuccess createMutation:", newTodo);
+      // Update cache: Add the new todo to the list associated with its project or the general list
+      const projectId = newTodo.projectId || null; // Get project ID from the newly created todo
+      const queryKey = ["todos", { projectId }];
+      
+      queryClient.setQueryData<Todo[]>(queryKey, (oldTodos = []) => [
+        ...oldTodos,
+        newTodo,
+      ]);
+      
+      // Also invalidate the general 'todos' query if it exists and might be used elsewhere
+      queryClient.invalidateQueries({ queryKey: ["todos", { projectId: null }] });
+      queryClient.invalidateQueries({ queryKey: ["todos"] }); // Invalidate base query key too
+
+      handleOnSuccess(); // Close dialog on success
+    },
+    onError: (error) => {
+      console.error("onError createMutation:", error);
+      axiosToast(error);
     },
   });
 
-  return (
-    <TaskModificationForm
-      handleOnClose={handleOnClose}
-      task={task}
-      title="Create Task"
-      editMutationFunctionReturn={editMutation}
-      formFunctionReturn={form}
-    />
-  );
+  try {
+    return (
+      <TaskModificationForm
+        handleOnClose={handleOnClose}
+        task={task} // Pass default values for creation
+        title="Create Task"
+        editMutationFunctionReturn={createMutation} // Pass the creation mutation
+        formFunctionReturn={form}
+      />
+    );
+  } catch (error) {
+    console.error("Error rendering TaskCreateFormController:", error);
+    return <div>Ocorreu um erro ao carregar o formulário de criação.</div>;
+  }
 };
 
 export default TaskCreateFormController;
+
