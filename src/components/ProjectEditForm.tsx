@@ -23,7 +23,11 @@ interface ProjectEditFormProps {
   trigger?: React.ReactNode;
 }
 
-const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger }) => {
+const ProjectEditForm: FC<ProjectEditFormProps> = ({
+  project,
+  onSuccess,
+  trigger,
+}) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,7 +36,6 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Atualizar os campos quando o projeto mudar
   useEffect(() => {
     setName(project.name);
     setDescription(project.description || "");
@@ -40,7 +43,6 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!name.trim()) {
       toast({
         title: "Erro",
@@ -49,38 +51,22 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
       });
       return;
     }
-    
     setIsLoading(true);
-    
     try {
       const response = await fetch("/api/projects", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          id: project.id,
-          name, 
-          description 
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, name, description }),
       });
-      
       if (!response.ok) {
         throw new Error("Falha ao atualizar projeto");
       }
-      
       toast({
         title: "Sucesso",
         description: "Projeto atualizado com sucesso",
       });
-      
-      // Fechar diálogo
       setOpen(false);
-      
-      // Invalidar cache de projetos para forçar recarregamento
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      
-      // Callback de sucesso
       if (onSuccess) {
         onSuccess();
       }
@@ -96,37 +82,29 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Tem certeza que deseja excluir o projeto "${project.name}"? Esta ação não pode ser desfeita.`)) {
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir o projeto "${project.name}"? Esta ação não pode ser desfeita.`
+      )
+    ) {
       return;
     }
-    
     setIsDeleting(true);
-    
     try {
       const response = await fetch("/api/projects", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: project.id }),
       });
-      
       if (!response.ok) {
         throw new Error("Falha ao excluir projeto");
       }
-      
       toast({
         title: "Sucesso",
         description: "Projeto excluído com sucesso",
       });
-      
-      // Fechar diálogo
       setOpen(false);
-      
-      // Invalidar cache de projetos para forçar recarregamento
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      
-      // Callback de sucesso
       if (onSuccess) {
         onSuccess();
       }
@@ -161,8 +139,9 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
             </DialogClose>
           </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          {/* Campos de nome e descrição reativados */}
           <div className="grid gap-2">
             <Label htmlFor="project-name">Nome do Projeto</Label>
             <Input
@@ -174,7 +153,7 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
               required
             />
           </div>
-          
+
           <div className="grid gap-2">
             <Label htmlFor="project-description">Descrição (opcional)</Label>
             <Input
@@ -185,24 +164,23 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
               disabled={isLoading || isDeleting}
             />
           </div>
-          
+
           <div className="flex justify-between gap-2 mt-2">
-            <Button 
-              type="button" 
+            {/* Botão de Excluir Funcional */}
+            <Button
+              type="button"
               variant="destructive"
               onClick={handleDelete}
               disabled={isLoading || isDeleting}
               className="flex items-center gap-1"
             >
               <Trash2 className="h-4 w-4" />
-              {isDeleting ? "Excluindo..." : "Excluir"}
+              <span>{isDeleting ? "Excluindo..." : "Excluir"}</span>
             </Button>
-            
-            <Button 
-              type="submit" 
-              disabled={isLoading || isDeleting}
-            >
-              {isLoading ? "Salvando..." : "Salvar Alterações"}
+
+            {/* Botão de Salvar Funcional */}
+            <Button type="submit" disabled={isLoading || isDeleting}>
+              <span>{isLoading ? "Salvando..." : "Salvar"}</span>
             </Button>
           </div>
         </form>
@@ -212,4 +190,3 @@ const ProjectEditForm: FC<ProjectEditFormProps> = ({ project, onSuccess, trigger
 };
 
 export default ProjectEditForm;
-

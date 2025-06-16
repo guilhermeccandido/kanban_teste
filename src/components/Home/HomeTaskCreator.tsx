@@ -1,11 +1,12 @@
 "use client";
 
 import { openTodoEditor } from "@/redux/actions/todoEditorAction";
-import { Todo } from "@prisma/client";
+import type { Project, Todo } from "@prisma/client"; // Import Project type
 import { Plus, PlusCircle } from "lucide-react";
 import { FC } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "../ui/button";
+import { useSearchParams } from "next/navigation";
 
 type HomeTaskCreatorProps = {
   state: Todo["state"];
@@ -13,9 +14,11 @@ type HomeTaskCreatorProps = {
 
 const HomeTaskCreator: FC<HomeTaskCreatorProps> = ({ state }) => {
   const dispatch = useDispatch();
+  const searchParams = useSearchParams();
+  const currentProjectId = searchParams.get("projectId") || null; // Get projectId or null
 
   const handleOpenDialog = () => {
-    dispatch(openTodoEditor({ state }, "/", "create"));
+    dispatch(openTodoEditor({ state, projectId: currentProjectId }, "/", "create"));
   };
 
   return (
