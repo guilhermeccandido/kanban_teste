@@ -2,7 +2,7 @@ import { Skeleton } from "../ui/skeleton";
 import { TASK_STATE_OPTIONS } from "@/lib/const";
 import { TodoEditRequest } from "@/lib/validators/todo";
 import todoEditRequest from "@/requests/todoEditRequest";
-import { Todo } from "@prisma/client";
+import { Todo, State } from "@prisma/client";
 import { AxiosError } from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 // Update import from react-query to @tanstack/react-query
@@ -22,26 +22,23 @@ const TodoColumnManager = () => {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const searchTerm = searchParams.get("q")?.toLowerCase() || "";
-  const projectId = searchParams.get("projectId") || null; // Ensure projectId can be null
-  const viewMode = searchParams.get("view") || null; // View mode for filtering
+  const projectId = searchParams.get("projectId") || null;
+  const viewMode = searchParams.get("view") || null;
 
-  // Update useQuery syntax for v4+
   const { data: todos, isLoading, error } = useQuery<Todo[], Error>({
-    // Include projectId and viewMode in the queryKey to refetch when they change
     queryKey: ["todos", { projectId, viewMode }], 
-    queryFn: () => todoFetchRequest(projectId, viewMode), // Pass projectId and viewMode to fetch function
+    queryFn: () => todoFetchRequest(projectId, viewMode),
     onError: (err) => {
       console.error("Error fetching todos:", err);
-      axiosToast(new AxiosError("Falha ao buscar tarefas.")); // Show toast on error
+      axiosToast(new AxiosError("Falha ao buscar tarefas."));
     }
   });
 
-  // Update useMutation syntax for v4+
   const { mutate: handleUpdateState, isPending: isUpdateLoading } = useMutation<
-    Todo[], // Return type from API (adjust if different)
-    AxiosError, // Error type
-    TodoEditRequest, // Variables type
-    { previousTodos?: Todo[] } // Context type
+    Todo[],
+    AxiosError,
+    TodoEditRequest, 
+    { previousTodos?: Todo[] } 
   >({
     mutationFn: todoEditRequest,
     onMutate: async (payload: TodoEditRequest) => {
@@ -55,28 +52,23 @@ const TodoColumnManager = () => {
       if (!previousTodos) return { previousTodos: undefined };
 
       const originalTodo = previousTodos.find((todo) => todo.id === payload.id);
-      if (!originalTodo) return { previousTodos }; // Should not happen if payload is valid
+      if (!originalTodo) return { previousTodos };
 
       const originalState = originalTodo.state;
       const originalOrder = originalTodo.order;
       const newState = payload.state!;
       const newOrder = payload.order!;
 
-      // Optimistic update logic (complex, ensure correctness)
       const newTodos = previousTodos.map((todo) => {
-        // Target todo being moved
         if (todo.id === payload.id) {
           return { ...todo, state: newState, order: newOrder };
         }
 
-        // Adjust order in the original column
         if (todo.state === originalState && todo.order > originalOrder) {
           return { ...todo, order: todo.order - 1 };
         }
 
-        // Adjust order in the destination column
         if (todo.state === newState && todo.order >= newOrder) {
-           // Only adjust if it wasn't the moved item (already handled)
            if (todo.id !== payload.id) {
              return { ...todo, order: todo.order + 1 };
            }
@@ -85,7 +77,6 @@ const TodoColumnManager = () => {
         return todo;
       });
 
-      // Sort the updated list by order within each state
       const sortedNewTodos = TASK_STATE_OPTIONS.reduce((acc, stateOption) => {
         const stateTodos = newTodos
           .filter(todo => todo.state === stateOption.value)
@@ -100,7 +91,6 @@ const TodoColumnManager = () => {
     },
     onError: (error, variables, context) => {
       console.error("onError handleUpdateState:", error);
-      // Rollback on error
       if (context?.previousTodos) {
         queryClient.setQueryData(["todos", { projectId, viewMode }], context.previousTodos);
       }
@@ -108,25 +98,22 @@ const TodoColumnManager = () => {
     },
     onSuccess: (data, variables, context) => {
       console.log("onSuccess handleUpdateState:", data);
-      // Optionally invalidate or refetch, but optimistic update should suffice
-      // queryClient.invalidateQueries({ queryKey: ["todos", { projectId, viewMode }] });
+      queryClient.invalidateQueries({ queryKey: ["todos", { projectId }] });
     },
   });
 
   const handleDragEnd = (dragEndEvent: OnDragEndEvent) => {
     console.log("handleDragEnd event:", dragEndEvent);
     const { over, item, order } = dragEndEvent;
-    // Ensure over (target column state) and item (todo id) are valid
     if (!over || !item || order === undefined || order === null) {
         console.warn("Invalid drag end event data:", dragEndEvent);
         return;
     }
 
     const payload: TodoEditRequest = {
-      state: over as Todo["state"],
+      state: State[over as keyof typeof State],
       id: item as string,
       order,
-      // Manter o projectId atual ao mover o card
       projectId: undefined, // Não alterar o projeto ao mover entre colunas
       // Include other fields if required by validator/API, even if undefined
       title: undefined,
@@ -164,20 +151,17 @@ const TodoColumnManager = () => {
   }
 
   const filteredTodos =
-    todos?.filter((todo) => {
+    (Array.isArray(todos) ? todos : []).filter((todo) => {
       if (!searchTerm) return true;
       const inTitle = todo.title?.toLowerCase().includes(searchTerm);
-      // Description might be null/undefined, handle safely
       const inDescription = todo.description?.toLowerCase().includes(searchTerm) ?? false;
       return inTitle || inDescription;
-    }) ?? [];
+    });
     
   console.log(`Filtered Todos (${filteredTodos.length}):`, filteredTodos);
 
-  // Determinar o nome do projeto atual para exibição
   let projectName = "Todos os Projetos";
   if (projectId && projectId !== "all") {
-    // Tentar encontrar o nome do projeto a partir dos todos
     const projectTodo = filteredTodos.find(todo => todo.project?.id === projectId);
     if (projectTodo?.project?.name) {
       projectName = projectTodo.project.name;

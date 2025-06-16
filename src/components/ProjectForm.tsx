@@ -88,13 +88,8 @@ const ProjectForm: FC<ProjectFormProps> = ({ onSuccess, trigger }) => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex justify-between">
+          <DialogTitle>
             <span>Criar Novo Projeto</span>
-            <DialogClose asChild>
-              <Button variant="ghost" className="p-0 h-auto">
-                <X />
-              </Button>
-            </DialogClose>
           </DialogTitle>
         </DialogHeader>
         
