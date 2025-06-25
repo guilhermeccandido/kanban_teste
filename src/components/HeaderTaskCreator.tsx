@@ -1,9 +1,11 @@
 "use client";
 
 import { openTodoEditor } from "@/redux/actions/todoEditorAction";
+import type { Project } from "@prisma/client";
 import { Plus } from "lucide-react";
 import { FC } from "react";
 import { useDispatch } from "react-redux";
+import { useSearchParams } from "next/navigation";
 
 type HeaderTaskCreatorProps = {
   caller: string;
@@ -11,9 +13,11 @@ type HeaderTaskCreatorProps = {
 
 const HeaderTaskCreator: FC<HeaderTaskCreatorProps> = ({ caller }) => {
   const dispatch = useDispatch();
+  const searchParams = useSearchParams();
+  const currentProjectId = searchParams.get("projectId") || null; // Get projectId or null
 
   const handleOpenDialog = () => {
-    dispatch(openTodoEditor({}, caller, "create"));
+    dispatch(openTodoEditor({ projectId: currentProjectId }, caller, "create"));
   };
 
   return (
