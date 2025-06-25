@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Menu, Search, Settings, User, Users } from "lucide-react"; // Added User, Users icons
+import { Menu, Search, Settings, User } from "lucide-react"; // Added User icon, removed Users
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Button, buttonVariants } from "./ui/button";
 import { Input } from "./ui/input";
@@ -24,7 +24,7 @@ const AppHeader = () => {
   const [search, setSearch] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentView = searchParams.get("view") || "all"; // Get current view, default to 'all'
+  // Removed currentView
 
   useEffect(() => {
     console.log("AppHeader useEffect for searchParams running...");
@@ -43,16 +43,7 @@ const AppHeader = () => {
     router.replace(`/?${params.toString()}`);
   };
 
-  // Function to handle view change
-  const handleViewChange = (view: 'all' | 'mine') => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (view === 'mine') {
-      params.set("view", "mine");
-    } else {
-      params.delete("view"); // Default to 'all' when view param is absent
-    }
-    router.replace(`/?${params.toString()}`);
-  };
+  // Removed handleViewChange function
 
   try {
     return (
@@ -84,42 +75,6 @@ const AppHeader = () => {
         {/* Right side controls */}
         <div className="flex items-center space-x-2">
           {/* View Filter Buttons */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={currentView === 'all' ? "secondary" : "ghost"} // Highlight if active
-                  size="icon"
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  onClick={() => handleViewChange('all')}
-                >
-                  <Users className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Ver Todos os Cards</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={currentView === 'mine' ? "secondary" : "ghost"} // Highlight if active
-                  size="icon"
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  onClick={() => handleViewChange('mine')}
-                  disabled={!session?.user} // Disable if not logged in
-                >
-                  <User className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Ver Apenas Meus Cards</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
           {/* End View Filter Buttons */}
 
           <ThemeSwitcher />

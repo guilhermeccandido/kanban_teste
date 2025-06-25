@@ -102,8 +102,8 @@ const TaskModificationForm: FC<TaskEditFormProps> = ({
 
   // Converter projetos para o formato de opções do select
   const projectOptions = projects?.map(project => ({
-    id: project.id,
-    name: project.name,
+    value: project.id.toString(), // Ensure value is a string
+    title: project.name,
   })) || [];
 
   const ErrorMessage = ({ msg }: ErrorMessageProps) => {
@@ -142,16 +142,16 @@ const TaskModificationForm: FC<TaskEditFormProps> = ({
             <Controller
               control={control}
               name="projectId"
-              defaultValue={task.projectId || null} // Use defaultValue from task prop
+              defaultValue={task.projectId?.toString() || ""} // Use defaultValue from task prop, ensure string
               render={({ field }) => (
                 <CustomizedSelect
                   options={[
-                    { id: null, name: "Sem projeto" },
+                    { value: "", title: "Sem projeto" }, // Standardized "no project" option
                     ...projectOptions
                   ]}
                   placeholder="Selecione o projeto"
                   onChange={field.onChange}
-                  value={field.value}
+                  value={field.value?.toString() || ""} // Ensure value passed to select is string
                   isLoading={projectsLoading}
                 />
               )}
